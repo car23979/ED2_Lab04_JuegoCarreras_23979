@@ -48,9 +48,6 @@ volatile uint8_t puntosJ2 = 0;
 volatile uint8_t carrera_activa = 0; // Bloquea botones hasta que termine conteo
 volatile uint8_t hay_ganador = 0;
 
-// Antirebote
-volatile uint32_t last_tick_J1 = 0;
-volatile uint32_t last_tick_J2 = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -113,21 +110,23 @@ int main(void)
 	  // Detectar botón de inicio (BTN_3 en PC2)
 
 	  if (HAL_GPIO_ReadPin(BTN_INICIO_GPIO_Port, BTN_INICIO_Pin) == GPIO_PIN_RESET && !carrera_activa) {
+		  HAL_Delay(100); //Devounce
+
 		  // LIMPIEZA TOTAL DE REGISTROS
-		      GPIOB->ODR = 0; // Apaga todos los pines del Puerto B de un solo golpe
-		      GPIOC->ODR = 0; // Apaga todos los pines del Puerto C de un solo golpe (Esto mata a PC4)
+		  GPIOB->ODR = 0; // Apaga todos los pines del Puerto B de un solo golpe
+		  GPIOC->ODR = 0; // Apaga todos los pines del Puerto C de un solo golpe (Esto mata a PC4)
 
-		      // El display es Ánodo Común, así que después de limpiar ODR,
-		      // hay que volver a apagarlo (enviando 1s)
-		      HAL_GPIO_WritePin(Seg_A_GPIO_Port, Seg_A_Pin|Seg_B_Pin|Seg_C_Pin|Seg_D_Pin|Seg_E_Pin|Seg_F_Pin|Seg_G_Pin, GPIO_PIN_SET);
+		  // El display es Ánodo Común, así que después de limpiar ODR,
+		  // hay que volver a apagarlo (enviando 1s)
+		  HAL_GPIO_WritePin(Seg_A_GPIO_Port, Seg_A_Pin|Seg_B_Pin|Seg_C_Pin|Seg_D_Pin|Seg_E_Pin|Seg_F_Pin|Seg_G_Pin, GPIO_PIN_SET);
 
-		      puntosJ1 = 0;
-		      puntosJ2 = 0;
-		      hay_ganador = 0;
+		  puntosJ1 = 0;
+		  puntosJ2 = 0;
+		  hay_ganador = 0;
 
 	      for (int i = 5; i >= 0; i--) {
 	          mostrarEnDisplay(i);
-	          HAL_Delay(100);
+	          HAL_Delay(1000);
 	      }
 	      carrera_activa = 1;
 	  }
@@ -313,37 +312,35 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
+	// Si la carrera no ha empezado o ya terminó, ignorar
     if (!carrera_activa || hay_ganador) return;
 
     // JUGADOR 1
     if (GPIO_Pin == BTN_J1_Pin) {
         // Solo contamos si el pin está realmente en nivel bajo (presionado)
-        // y si ha pasado suficiente tiempo (debounce)
-        if (HAL_GPIO_ReadPin(BTN_J1_GPIO_Port, BTN_J1_Pin) == GPIO_PIN_RESET) {
-            if (HAL_GetTick() - last_tick_J1 > 250) {
                 puntosJ1++;
-                actualizar_leds_carrera_J1(puntosJ1);
-                verificar_ganador();
-                last_tick_J1 = HAL_GetTick();
-            }
-        }
+                if (puntosJ1 <= 4) {
+                	actualizar_leds_carrera_J1(puntosJ1);
+                } else {
+                	verificar_ganador(); // Se dispara en la 5ta pulsación
+                }
     }
 
     // JUGADOR 2
     if (GPIO_Pin == BTN_J2_Pin) {
-        if (HAL_GPIO_ReadPin(BTN_J2_GPIO_Port, BTN_J2_Pin) == GPIO_PIN_RESET) {
-            if (HAL_GetTick() - last_tick_J2 > 250) {
                 puntosJ2++;
-                actualizar_leds_carrera_J2(puntosJ2);
-                verificar_ganador();
-                last_tick_J2 = HAL_GetTick();
+                if (puntosJ2 <= 4) {
+                	actualizar_leds_carrera_J2(puntosJ2);
+                } else {
+                	verificar_ganador(); // Se dispara en la 5ta pulsación
+                }
+
             }
-        }
-    }
+
 }
 
 void verificar_ganador(void) {
-    if (puntosJ1 >= 4) {
+    if (puntosJ1 >= 5) {
         hay_ganador = 1;
         carrera_activa = 0;
         mostrarEnDisplay(1);
@@ -361,7 +358,7 @@ void verificar_ganador(void) {
         HAL_GPIO_WritePin(J2_LED3_GPIO_Port, J2_LED3_Pin, GPIO_PIN_RESET);
         HAL_GPIO_WritePin(J2_LED4_GPIO_Port, J2_LED4_Pin, GPIO_PIN_RESET);
     }
-    else if (puntosJ2 >= 4) {
+    else if (puntosJ2 >= 5) {
         hay_ganador = 1;
         carrera_activa = 0;
         mostrarEnDisplay(2);
@@ -382,21 +379,44 @@ void verificar_ganador(void) {
 }
 
 void mostrarEnDisplay(uint8_t num) {
-    // Apagar todos primero (SET = OFF en Ánodo Común)
-    HAL_GPIO_WritePin(Seg_A_GPIO_Port, Seg_A_Pin|Seg_B_Pin|Seg_C_Pin|Seg_D_Pin|Seg_E_Pin|Seg_F_Pin|Seg_G_Pin, GPIO_PIN_SET);
+    // 1. APAGAR TODO (Poner en SET porque es Ánodo Común)
+    // Debemos apagar cada puerto por separado
+    HAL_GPIO_WritePin(GPIOC, Seg_A_Pin|Seg_B_Pin|Seg_C_Pin|Seg_G_Pin, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(GPIOA, Seg_D_Pin|Seg_E_Pin, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(GPIOB, Seg_F_Pin, GPIO_PIN_SET);
 
     switch(num) {
-        case 0: HAL_GPIO_WritePin(Seg_A_GPIO_Port, Seg_A_Pin|Seg_B_Pin|Seg_C_Pin|Seg_D_Pin|Seg_E_Pin|Seg_F_Pin, GPIO_PIN_RESET); break;
-        case 1: HAL_GPIO_WritePin(Seg_B_GPIO_Port, Seg_B_Pin|Seg_C_Pin, GPIO_PIN_RESET); break;
-        case 2: HAL_GPIO_WritePin(Seg_A_GPIO_Port, Seg_A_Pin|Seg_B_Pin|Seg_G_Pin|Seg_E_Pin|Seg_D_Pin, GPIO_PIN_RESET); break;
-        case 3: HAL_GPIO_WritePin(Seg_A_GPIO_Port, Seg_A_Pin|Seg_B_Pin|Seg_G_Pin|Seg_C_Pin|Seg_D_Pin, GPIO_PIN_RESET); break;
-        case 4: HAL_GPIO_WritePin(Seg_F_GPIO_Port, Seg_F_Pin|Seg_G_Pin|Seg_B_Pin|Seg_C_Pin, GPIO_PIN_RESET); break;
-        case 5: HAL_GPIO_WritePin(Seg_A_GPIO_Port, Seg_A_Pin|Seg_F_Pin|Seg_G_Pin|Seg_C_Pin|Seg_D_Pin, GPIO_PIN_RESET); break;
+        case 0: // A, B, C, D, E, F
+            HAL_GPIO_WritePin(GPIOC, Seg_A_Pin|Seg_B_Pin|Seg_C_Pin, GPIO_PIN_RESET);
+            HAL_GPIO_WritePin(GPIOA, Seg_D_Pin|Seg_E_Pin, GPIO_PIN_RESET);
+            HAL_GPIO_WritePin(GPIOB, Seg_F_Pin, GPIO_PIN_RESET);
+            break;
+        case 1: // B, C
+            HAL_GPIO_WritePin(GPIOC, Seg_B_Pin|Seg_C_Pin, GPIO_PIN_RESET);
+            break;
+        case 2: // A, B, G, E, D
+            HAL_GPIO_WritePin(GPIOC, Seg_A_Pin|Seg_B_Pin|Seg_G_Pin, GPIO_PIN_RESET);
+            HAL_GPIO_WritePin(GPIOA, Seg_D_Pin|Seg_E_Pin, GPIO_PIN_RESET);
+            break;
+        case 3: // A, B, G, C, D
+            HAL_GPIO_WritePin(GPIOC, Seg_A_Pin|Seg_B_Pin|Seg_C_Pin|Seg_G_Pin, GPIO_PIN_RESET);
+            HAL_GPIO_WritePin(GPIOA, Seg_D_Pin, GPIO_PIN_RESET);
+            break;
+        case 4: // F, G, B, C
+            HAL_GPIO_WritePin(GPIOB, Seg_F_Pin, GPIO_PIN_RESET);
+            HAL_GPIO_WritePin(GPIOC, Seg_G_Pin|Seg_B_Pin|Seg_C_Pin, GPIO_PIN_RESET);
+            break;
+        case 5: // A, F, G, C, D
+            HAL_GPIO_WritePin(GPIOC, Seg_A_Pin|Seg_G_Pin|Seg_C_Pin, GPIO_PIN_RESET);
+            HAL_GPIO_WritePin(GPIOB, Seg_F_Pin, GPIO_PIN_RESET);
+            HAL_GPIO_WritePin(GPIOA, Seg_D_Pin, GPIO_PIN_RESET);
+            break;
     }
 }
-
 void actualizar_leds_carrera_J1(uint8_t pos) {
+	// Apagar todos los leds
     HAL_GPIO_WritePin(J1_LED1_GPIO_Port, J1_LED1_Pin|J1_LED2_Pin|J1_LED3_Pin|J1_LED4_Pin, GPIO_PIN_RESET);
+    // Encender solo actual
     if(pos == 1) HAL_GPIO_WritePin(J1_LED1_GPIO_Port, J1_LED1_Pin, GPIO_PIN_SET);
     if(pos == 2) HAL_GPIO_WritePin(J1_LED2_GPIO_Port, J1_LED2_Pin, GPIO_PIN_SET);
     if(pos == 3) HAL_GPIO_WritePin(J1_LED3_GPIO_Port, J1_LED3_Pin, GPIO_PIN_SET);
@@ -404,7 +424,8 @@ void actualizar_leds_carrera_J1(uint8_t pos) {
 }
 
 void actualizar_leds_carrera_J2(uint8_t pos) {
-    HAL_GPIO_WritePin(J2_LED1_GPIO_Port, J2_LED1_Pin|J2_LED2_Pin|J2_LED3_Pin|J2_LED4_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(J2_LED1_GPIO_Port, J2_LED1_Pin|J2_LED3_Pin|J2_LED4_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GPIOC, J2_LED2_Pin, GPIO_PIN_RESET);
     if(pos == 1) HAL_GPIO_WritePin(J2_LED1_GPIO_Port, J2_LED1_Pin, GPIO_PIN_SET);
     if(pos == 2) HAL_GPIO_WritePin(J2_LED2_GPIO_Port, J2_LED2_Pin, GPIO_PIN_SET);
     if(pos == 3) HAL_GPIO_WritePin(J2_LED3_GPIO_Port, J2_LED3_Pin, GPIO_PIN_SET);

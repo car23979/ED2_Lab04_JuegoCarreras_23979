@@ -60,8 +60,8 @@ all: main-build
 main-build: Lab4_Juego_de_Carreras.elf secondary-outputs
 
 # Tool invocations
-Lab4_Juego_de_Carreras.elf Lab4_Juego_de_Carreras.map: $(OBJS) $(USER_OBJS) C:\Users\Admin\Desktop\UVG\Años\ 4\ -\ S1\Digital\ 2\STM32\Lab4_Juego_de_Carreras\STM32F446RETX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "Lab4_Juego_de_Carreras.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\Admin\Desktop\UVG\Años 4 - S1\Digital 2\STM32\Lab4_Juego_de_Carreras\STM32F446RETX_FLASH.ld" --specs=nosys.specs -Wl,-Map="Lab4_Juego_de_Carreras.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+Lab4_Juego_de_Carreras.elf Lab4_Juego_de_Carreras.map: $(OBJS) $(USER_OBJS) C:\Users\Admin\Desktop\UVG\Años\ 4\ -\ S1\Digital\ 2\STM32\ED2_Lab04_JuegoCarreras_23979\Lab4_Juego_de_Carreras\STM32F446RETX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "Lab4_Juego_de_Carreras.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\Admin\Desktop\UVG\Años 4 - S1\Digital 2\STM32\ED2_Lab04_JuegoCarreras_23979\Lab4_Juego_de_Carreras\STM32F446RETX_FLASH.ld" --specs=nosys.specs -Wl,-Map="Lab4_Juego_de_Carreras.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
